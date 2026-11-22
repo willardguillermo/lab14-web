@@ -25,6 +25,16 @@ resilience4j:
         minimumNumberOfCalls: 3       # minimo de llamadas antes de calcular el % de fallos
         failureRateThreshold: 50      # si falla el 50% o mas, el circuito se ABRE
         waitDurationInOpenState: 10s  # tiempo abierto antes de pasar a HALF_OPEN
+        ignoreExceptions:
+          # Un rechazo del bulkhead no significa que categoria-service este caido
+          - io.github.resilience4j.bulkhead.BulkheadFullException
+
+  # Bulkhead: limita cuantas llamadas simultaneas se hacen a categoria-service
+  bulkhead:
+    instances:
+      categoriaBulkhead:
+        maxConcurrentCalls: 2   # solo 2 llamadas a la vez
+        maxWaitDuration: 1s     # las demas esperan 1s; si no hay cupo -> fallback
 
   # Retry: reintenta la llamada si falla por una causa temporal
   retry:
@@ -37,6 +47,8 @@ resilience4j:
           - io.github.resilience4j.circuitbreaker.CallNotPermittedException
           # Un 404 no es un fallo temporal
           - feign.FeignException$NotFound
+          # Si el bulkhead esta lleno se responde con el fallback sin reintentar
+          - io.github.resilience4j.bulkhead.BulkheadFullException
 
 # Actuator: estado de los circuitos
 management:

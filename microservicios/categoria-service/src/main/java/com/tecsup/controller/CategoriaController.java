@@ -23,6 +23,11 @@ public class CategoriaController {
     @Value("${empresa.ambiente}")
     private String ambiente;
 
+    // Demora simulada para probar el Bulkhead (0 = sin demora).
+    // Ej.: java -jar categoria-service.jar --simulacion.demora-ms=10000
+    @Value("${simulacion.demora-ms:0}")
+    private long demoraMs;
+
     // Muestra qué perfil (dev / prod) está activo
     @GetMapping("/ambiente")
     public ResponseEntity<Map<String, String>> ambiente() {
@@ -44,7 +49,12 @@ public class CategoriaController {
 
     // Si no existe, el service lanza ResourceNotFoundException -> 404
     @GetMapping("/{id}")
-    public ResponseEntity<Categoria> obtener(@PathVariable Long id) {
+    public ResponseEntity<Categoria> obtener(@PathVariable Long id) throws InterruptedException {
+        // Simular que el servicio tarda (10 segundos en la prueba del Bulkhead)
+        if (demoraMs > 0) {
+            System.out.println("Simulando demora de " + demoraMs + " ms para la categoria " + id);
+            Thread.sleep(demoraMs);
+        }
         return ResponseEntity.ok(service.obtener(id));
     }
 
