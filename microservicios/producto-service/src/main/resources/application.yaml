@@ -32,6 +32,11 @@ resilience4j:
       categoriaRetry:
         maxAttempts: 3      # 1 intento + 2 reintentos
         waitDuration: 2s    # espera entre intentos
+        ignoreExceptions:
+          # Con el circuito ABIERTO no tiene sentido reintentar: fallback inmediato
+          - io.github.resilience4j.circuitbreaker.CallNotPermittedException
+          # Un 404 no es un fallo temporal
+          - feign.FeignException$NotFound
 
 # Actuator: estado de los circuitos
 management:
