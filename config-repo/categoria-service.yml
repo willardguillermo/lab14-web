@@ -1,19 +1,12 @@
-server:
-  port: 8082
-
+# Configuracion comun a todos los perfiles
 spring:
-  datasource:
-    url: jdbc:mysql://localhost:3306/bd_categoria_dev?createDatabaseIfNotExist=true
-    username: root
-    password:
+  application:
+    name: categoria-service
 
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: true
-
-empresa:
-  ambiente: desarrollo
 
 mensaje:
   texto: Configuración obtenida desde Config Server para Categoría Service
