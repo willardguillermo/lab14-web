@@ -1,0 +1,19 @@
+server:
+  port: 8081
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/bd_cliente_dev?createDatabaseIfNotExist=true
+    username: root
+    password:
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+empresa:
+  ambiente: desarrollo
+
+mensaje:
+  texto: Configuración obtenida desde Config Server para Cliente Service
