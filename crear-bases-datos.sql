@@ -1,0 +1,5 @@
+-- Bases de datos del laboratorio (una por microservicio, perfil dev)
+CREATE DATABASE IF NOT EXISTS bd_categoria_dev;
+CREATE DATABASE IF NOT EXISTS bd_producto_dev;
+CREATE DATABASE IF NOT EXISTS bd_cliente_dev;
+CREATE DATABASE IF NOT EXISTS bd_pedido_dev;
