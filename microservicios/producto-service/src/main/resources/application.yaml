@@ -26,6 +26,13 @@ resilience4j:
         failureRateThreshold: 50      # si falla el 50% o mas, el circuito se ABRE
         waitDurationInOpenState: 10s  # tiempo abierto antes de pasar a HALF_OPEN
 
+  # Retry: reintenta la llamada si falla por una causa temporal
+  retry:
+    instances:
+      categoriaRetry:
+        maxAttempts: 3      # 1 intento + 2 reintentos
+        waitDuration: 2s    # espera entre intentos
+
 # Actuator: estado de los circuitos
 management:
   endpoints:
