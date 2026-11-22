@@ -6,6 +6,15 @@ spring:
   config:
     # La configuracion (puerto, BD, JPA, mensaje) se obtiene del config-server
     import: optional:configserver:http://localhost:8888
+  # Timeout de Feign hacia cliente-service: con la demora de 5s la llamada falla a los 3s
+  # (timeout) y el Retry la vuelve a intentar
+  cloud:
+    openfeign:
+      client:
+        config:
+          cliente-service:
+            connect-timeout: 2000
+            read-timeout: 3000
 
 # Configuracion Eureka
 eureka:
@@ -31,6 +40,26 @@ resilience4j:
         minimumNumberOfCalls: 3
         failureRateThreshold: 50
         waitDurationInOpenState: 10s
+        ignoreExceptions:
+          # Un rechazo del bulkhead no significa que producto-service este caido
+          - io.github.resilience4j.bulkhead.BulkheadFullException
+
+  # Retry para la consulta al cliente
+  retry:
+    instances:
+      clienteRetry:
+        maxAttempts: 3      # 1 intento + 2 reintentos
+        waitDuration: 2s    # espera entre intentos
+        ignoreExceptions:
+          - io.github.resilience4j.circuitbreaker.CallNotPermittedException
+          - feign.FeignException$NotFound
+
+  # Bulkhead para la consulta al producto
+  bulkhead:
+    instances:
+      productoBulkhead:
+        maxConcurrentCalls: 2   # solo 2 consultas a producto-service a la vez
+        maxWaitDuration: 1s     # las demas esperan 1s; si no hay cupo -> fallback
 
 # Actuator: estado de los circuitos
 management:
