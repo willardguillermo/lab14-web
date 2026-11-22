@@ -1,7 +1,7 @@
 # Laboratorio 14: Config Server y Resiliencia
 
-**Curso:** Desarrollo de Aplicaciones Web (Tecsup)
-**Alumno:** Guillermo Willard, sección A
+**Curso:** Desarrollo de Aplicaciones Web (Tecsup)  
+**Alumno:** Guillermo Willard, sección A  
 **Repositorio:** https://github.com/willardguillermo/lab14-web
 
 ## 1. Objetivo
@@ -10,6 +10,10 @@ Agregar a la arquitectura de microservicios del Lab 13 (Cliente, Producto, Categ
 **Config Server** para centralizar la configuración y los patrones de resiliencia **Circuit Breaker**,
 **Retry** y **Bulkhead** con Resilience4j. Después se probó cómo responde la aplicación cuando un
 servicio se cae o se pone lento.
+
+**Sobre las evidencias:** las imágenes tituladas *Salida registrada* se generaron a partir de la
+salida guardada de cada prueba, a veces filtrada o resumida. La de Eureka y las que dicen
+*captura de Chrome* son capturas reales del navegador.
 
 ## 2. Config Server
 
@@ -42,6 +46,8 @@ spring:
     import: optional:configserver:http://localhost:8888
 ```
 
+Primera versión, con el puerto y la base de datos en un solo archivo por servicio (leída de la copia local del repositorio):
+
 ![Config Server categoria-service](evidencias/01-config-server-categoria-default.png)
 
 ![Config Server producto-service](evidencias/02-config-server-producto-default.png)
@@ -54,9 +60,26 @@ Se eliminaron los `application-dev.yaml` locales de cada microservicio.
 
 ![Perfiles producto](evidencias/03-perfiles-producto.png)
 
+Las mismas consultas en el navegador (captura de Chrome), leyendo desde GitHub. Perfiles `default`, `dev` y `prod` de producto-service:
+
+![Chrome producto default](evidencias/22-chrome-producto-default.png)
+
+![Chrome producto dev](evidencias/23-chrome-producto-dev.png)
+
+![Chrome producto prod](evidencias/24-chrome-producto-prod.png)
+
 **Actividad (cliente y pedido):** se crearon los mismos archivos para `cliente-service` y `pedido-service`.
 
 ![Perfiles cliente y pedido](evidencias/04-perfiles-cliente-pedido.png)
+
+Cliente y pedido con perfil `dev` (captura de Chrome):
+
+![Chrome cliente dev](evidencias/25-chrome-cliente-dev.png)
+
+![Chrome pedido dev](evidencias/26-chrome-pedido-dev.png)
+
+El perfil `prod` se verificó consultando el Config Server. No se arrancaron los servicios con él,
+porque su base de datos (`servidor`) no existe en este equipo.
 
 Configuración leída desde GitHub. Los cuatro servicios arrancan con el perfil `dev` que les entrega
 el Config Server (endpoint `GET /config` de cada servicio):
@@ -94,15 +117,72 @@ se intentan (*CircuitBreaker 'categoriaService' is OPEN and does not permit furt
 
 ![CB después](evidencias/08-cb-producto-despues.png)
 
-### Actividad: pedido-service → cliente-service y producto-service
+### Actividad: cliente-service → pedido-service
 
-Se crearon `ClienteCircuitService` (circuito `clienteService`) y `ProductoCircuitService` (circuito
-`productoService`). Ahora `GET /api/pedidos` devuelve cada pedido con los datos del cliente y del
-producto de cada detalle. Si alguno de los servicios falla, el pedido igual se muestra con el fallback.
+`cliente-service` consulta los pedidos de un cliente con Feign, en el endpoint nuevo
+`GET /api/clientes/{id}/pedidos`. La llamada está protegida en `PedidoCircuitService`:
+
+```java
+@CircuitBreaker(name = "pedidoService", fallbackMethod = "pedidosFallback")
+public PedidosClienteDTO obtenerPedidos(Long idCliente) {
+    System.out.println("Llamando a pedido-service...");
+    return new PedidosClienteDTO(idCliente, true, "OK", pedidoClient.listarPorCliente(idCliente));
+}
+
+public PedidosClienteDTO pedidosFallback(Long idCliente, Exception ex) {
+    System.out.println("Circuit Breaker pedido activado: " + ex.getMessage());
+    return new PedidosClienteDTO(idCliente, false, "Pedidos temporalmente no disponibles", List.of());
+}
+```
+
+```yaml
+resilience4j:
+  circuitbreaker:
+    instances:
+      pedidoService:
+        registerHealthIndicator: true
+        slidingWindowSize: 5
+        minimumNumberOfCalls: 3
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+```
+
+El campo `disponible` permite distinguir a un cliente sin pedidos de un `pedido-service` caído.
+`pedido-service` responde en `/api/pedidos/cliente/{id}` sin volver a llamar a `cliente-service`,
+para no crear un ciclo entre los dos.
+
+Antes de la falla (la última imagen es captura de Chrome):
+
+![CB cliente antes](evidencias/18-cb-cliente-antes.png)
+
+![Chrome pedidos del cliente](evidencias/29-chrome-cliente-pedidos.png)
+
+Con `pedido-service` detenido, dos llamadas fallan y el circuito se abre. Las siguientes reciben el fallback sin intentar la conexión:
+
+![CB cliente después](evidencias/19-cb-cliente-despues.png)
+
+Al volver `pedido-service`, el circuito se cierra solo:
+
+![CB cliente recuperado](evidencias/20-cb-cliente-recuperado.png)
+
+### Actividad: pedido-service → producto-service
+
+Se creó `ProductoCircuitService` (circuito `productoService`). También se protegió la llamada a
+`cliente-service` con `ClienteCircuitService`, que hace falta para la actividad de Retry. Ahora
+`GET /api/pedidos` devuelve cada pedido con su cliente y el producto de cada detalle, y si un
+servicio falla el pedido igual se muestra con el fallback. Estas dos evidencias se tomaron con la
+versión final, que ya incluye el Retry de la sección 6.
 
 ![CB pedido antes](evidencias/09-cb-pedido-antes.png)
 
 ![CB pedido después](evidencias/10-cb-pedido-despues.png)
+
+Listado completo con todos los servicios activos (captura de Chrome):
+
+![Chrome pedidos](evidencias/28-chrome-pedidos.png)
+
+Los fallbacks se usan solo al consultar. Al registrar no se inventan datos: crear un producto con
+`categoria-service` detenido respondió 503 y no guardó nada.
 
 ## 4. Retry Pattern
 
@@ -225,15 +305,15 @@ resilience4j:
 Feign corta cada llamada a los 3 s (*Read timed out*). El Retry la repite 3 veces, con un intento
 cada 5 s (3 s de timeout + 2 s de espera). Después ejecuta el fallback. Esos 3 fallos abren el
 circuito `clienteService`, así que el segundo pedido recibe el fallback al instante.
-`GET /api/pedidos` tardó 14 s.
+`GET /api/pedidos` tardó 13.4 s.
 
 ![Retry pedido](evidencias/14-retry-pedido.png)
 
 ### Demora de 10 s en producto-service (Bulkhead)
 
 De 5 peticiones simultáneas a `GET /api/pedidos`, solo 2 hilos llaman a `producto-service`
-(*exec-1* y *exec-2*) y tardan 20 s. Los otros 3 reciben `BulkheadFullException` en 1 s y responden
-en 2 s con *"Producto temporal no disponible"*. Los hilos de `pedido-service` no se quedan
+(*exec-1* y *exec-2*) y tardan 20 s. Los otros 3 reciben `BulkheadFullException` tras esperar 1 s por cada
+producto y responden en 2 s con *"Producto temporal no disponible"*. Los hilos de `pedido-service` no se quedan
 bloqueados esperando al servicio lento.
 
 ![Bulkhead pedido](evidencias/15-bulkhead-pedido.png)
@@ -242,13 +322,19 @@ bloqueados esperando al servicio lento.
 
 ![Retry y bulkhead](evidencias/16-retry-y-bulkhead-juntos.png)
 
+Las 4 peticiones llaman a `cliente-service` al mismo tiempo y fallan juntas por timeout. Esos fallos
+abren el circuito `clienteService` durante el primer intento, así que cuando el Retry quiere
+reintentar recibe `CallNotPermittedException` y pasa al fallback: no llega a los 3 intentos. Después
+el Bulkhead deja pasar 2 peticiones a `producto-service` (35 s en total) y rechaza las otras 2 (7 s).
+El Circuit Breaker corta los reintentos cuando ya hay evidencia de que el servicio está mal.
+
 ### Comportamiento observado y diferencias entre Retry y Bulkhead
 
 | | Retry | Bulkhead |
 |---|---|---|
 | Qué hace | Repite una llamada que falló | Limita cuántas llamadas simultáneas se hacen a un servicio |
 | Problema que resuelve | Fallos **temporales**: un timeout puntual, un reinicio, un microcorte de red | **Saturación**: un servicio lento que acapara hilos y conexiones |
-| Efecto en el tiempo | La respuesta tarda más (3 intentos ≈ 13 s en la prueba) | Las peticiones que no entran fallan rápido (2 s) |
+| Efecto en el tiempo | La respuesta tarda más (3 intentos: 13.4 s en la prueba) | Las peticiones que no entran fallan rápido (2 s) |
 | Riesgo | Si el servicio está caído, multiplica la carga y la espera; por eso se combina con Circuit Breaker | Rechaza peticiones aunque el servicio funcione, solo por estar ocupado |
 | Cuándo usarlo | Operaciones idempotentes (consultas GET) contra servicios que suelen recuperarse solos | Dependencias lentas o con capacidad limitada, para proteger al resto de la aplicación |
 
@@ -262,8 +348,8 @@ y Bulkhead en la del producto, que se llama varias veces por pedido y puede satu
 1. El Config Server permite cambiar puertos, bases de datos o mensajes de todos los microservicios
    desde un solo repositorio, sin recompilarlos. Con los perfiles `dev` y `prod` el mismo código
    sirve en cada ambiente.
-2. El Circuit Breaker evita que la caída de un servicio se propague. Cuando categoría, cliente o
-   producto se detuvieron, los servicios que los consumen siguieron respondiendo con datos de
+2. El Circuit Breaker evita que la caída de un servicio se propague. Cuando categoría, cliente,
+   producto o pedido se detuvieron, los servicios que los consumen siguieron respondiendo con datos de
    fallback, y con el circuito abierto ni siquiera esperaron a que la conexión falle.
 3. El orden de las anotaciones de Resilience4j importa: el `fallbackMethod` debe ir en el aspecto más
    externo (`@Retry`). Si no, los aspectos internos atrapan el error y el Retry nunca reintenta, como

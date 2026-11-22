@@ -47,7 +47,7 @@ microservicios/
 ├── gateway-service    (8080)  (del Lab 13, sin cambios)
 ├── categoria-service  (8082)
 ├── producto-service   (8083)  CategoriaCircuitService: CircuitBreaker + Retry + Bulkhead
-├── cliente-service    (8081)
+├── cliente-service    (8081)  PedidoCircuitService: CircuitBreaker hacia pedido-service
 └── pedido-service     (8084)  ClienteCircuitService (Retry + CB) y ProductoCircuitService (Bulkhead + CB)
 pruebas/                scripts de prueba
 ```
@@ -102,6 +102,12 @@ el mensaje, el puerto, la BD y el perfil que recibió.
 @Bulkhead(name = "categoriaBulkhead")
 public CategoriaDTO obtenerCategoria(Long id) { ... }
 ```
+
+### cliente-service → pedido-service (actividad)
+
+[`PedidoCircuitService`](microservicios/cliente-service/src/main/java/com/tecsup/services/PedidoCircuitService.java):
+`GET /api/clientes/{id}/pedidos` devuelve los pedidos del cliente. Si `pedido-service` no responde,
+el fallback devuelve `disponible: false` y la lista vacía.
 
 ### pedido-service → cliente-service (Retry) y producto-service (Bulkhead)
 
