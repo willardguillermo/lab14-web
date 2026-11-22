@@ -17,8 +17,13 @@ public class ProductoService {
     @Autowired
     private ProductoRepository repo;
 
+    // Solo para validar que la categoría exista antes de guardar
     @Autowired
     private CategoriaClient categoriaClient;
+
+    // Para completar la categoría de cada producto (protegido con Circuit Breaker)
+    @Autowired
+    private CategoriaCircuitService categoriaCircuitService;
 
     public List<Producto> listar() {
         List<Producto> productos = repo.findAll();
@@ -72,12 +77,8 @@ public class ProductoService {
         return p;
     }
 
-    // Si categoria-service no responde, el producto se devuelve igual (categoria = null)
+    // Si categoria-service no responde, el Circuit Breaker devuelve la categoría del fallback
     private void cargarCategoria(Producto p) {
-        try {
-            p.setCategoria(categoriaClient.obtenerCategoria(p.getCategoriaId()));
-        } catch (FeignException e) {
-            p.setCategoria(null);
-        }
+        p.setCategoria(categoriaCircuitService.obtenerCategoria(p.getCategoriaId()));
     }
 }

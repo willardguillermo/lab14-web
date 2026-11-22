@@ -14,3 +14,27 @@ eureka:
     fetch-registry: true
     service-url:
       defaultZone: http://localhost:8761/eureka
+
+# Circuit Breaker para las llamadas a categoria-service
+resilience4j:
+  circuitbreaker:
+    instances:
+      categoriaService:
+        registerHealthIndicator: true
+        slidingWindowSize: 5          # evalua las ultimas 5 llamadas
+        minimumNumberOfCalls: 3       # minimo de llamadas antes de calcular el % de fallos
+        failureRateThreshold: 50      # si falla el 50% o mas, el circuito se ABRE
+        waitDurationInOpenState: 10s  # tiempo abierto antes de pasar a HALF_OPEN
+
+# Actuator: estado de los circuitos
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,circuitbreakers,circuitbreakerevents,retries,bulkheads
+  endpoint:
+    health:
+      show-details: always
+  health:
+    circuitbreakers:
+      enabled: true
