@@ -1,6 +1,7 @@
 package com.tecsup.controller;
 
 import com.tecsup.dto.ClienteDTO;
+import com.tecsup.dto.PedidosClienteDTO;
 import com.tecsup.model.Cliente;
 import com.tecsup.services.ClienteService;
 import jakarta.validation.Valid;
@@ -38,6 +39,12 @@ public class ClienteController {
             Thread.sleep(demoraMs);
         }
         return ResponseEntity.ok(service.obtener(id));
+    }
+
+    // Pedidos del cliente, consultados en pedido-service
+    @GetMapping("/{id}/pedidos")
+    public ResponseEntity<PedidosClienteDTO> pedidos(@PathVariable Long id) {
+        return ResponseEntity.ok(service.pedidos(id));
     }
 
     @PostMapping

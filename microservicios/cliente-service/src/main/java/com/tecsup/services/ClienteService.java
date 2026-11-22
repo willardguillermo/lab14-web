@@ -1,6 +1,7 @@
 package com.tecsup.services;
 
 import com.tecsup.dto.ClienteDTO;
+import com.tecsup.dto.PedidosClienteDTO;
 import com.tecsup.exception.ResourceNotFoundException;
 import com.tecsup.model.Cliente;
 import com.tecsup.repository.ClienteRepository;
@@ -15,6 +16,9 @@ public class ClienteService {
     @Autowired
     private ClienteRepository repo;
 
+    @Autowired
+    private PedidoCircuitService pedidoCircuitService;
+
     public List<Cliente> listar() {
         return repo.findAll();
     }
@@ -22,6 +26,12 @@ public class ClienteService {
     public Cliente obtener(Long id) {
         return repo.findById(id).orElseThrow(
                 () -> new ResourceNotFoundException("Cliente no encontrado con id: " + id));
+    }
+
+    // Primero valida que el cliente exista (404); luego consulta sus pedidos con Circuit Breaker
+    public PedidosClienteDTO pedidos(Long id) {
+        obtener(id);
+        return pedidoCircuitService.obtenerPedidos(id);
     }
 
     public Cliente registrar(ClienteDTO dto) {

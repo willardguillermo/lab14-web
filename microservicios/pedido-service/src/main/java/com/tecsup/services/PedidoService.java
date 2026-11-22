@@ -41,6 +41,12 @@ public class PedidoService {
         return pedidos;
     }
 
+    // Lo consume cliente-service. No se completa el cliente ni los productos para
+    // no volver a llamar a cliente-service (evita un ciclo entre los dos servicios).
+    public List<Pedido> listarPorCliente(Long idCliente) {
+        return repo.findByIdCliente(idCliente);
+    }
+
     public Pedido obtener(Long id) {
         return completar(buscar(id));
     }
