@@ -28,27 +28,49 @@ public class PedidoService {
     @Autowired
     private ProductoClient productoClient;
 
+    // Consultas protegidas con Resilience4j (para completar los datos del pedido)
+    @Autowired
+    private ClienteCircuitService clienteCircuitService;
+
+    @Autowired
+    private ProductoCircuitService productoCircuitService;
+
     public List<Pedido> listar() {
-        return repo.findAll();
+        List<Pedido> pedidos = repo.findAll();
+        pedidos.forEach(this::completar);
+        return pedidos;
     }
 
     public Pedido obtener(Long id) {
-        return repo.findById(id).orElseThrow(
-                () -> new ResourceNotFoundException("Pedido no encontrado con id: " + id));
+        return completar(buscar(id));
     }
 
     @Transactional
     public Pedido registrar(PedidoDTO dto) {
-        return repo.save(armar(new Pedido(), dto));
+        return completar(repo.save(armar(new Pedido(), dto)));
     }
 
     @Transactional
     public Pedido actualizar(Long id, PedidoDTO dto) {
-        return repo.save(armar(obtener(id), dto));
+        return completar(repo.save(armar(buscar(id), dto)));
     }
 
     public void eliminar(Long id) {
-        repo.delete(obtener(id));
+        repo.delete(buscar(id));
+    }
+
+    private Pedido buscar(Long id) {
+        return repo.findById(id).orElseThrow(
+                () -> new ResourceNotFoundException("Pedido no encontrado con id: " + id));
+    }
+
+    // Completa los datos del cliente y de cada producto. Si algún servicio falla,
+    // Resilience4j devuelve el fallback y el pedido se muestra igual.
+    private Pedido completar(Pedido pedido) {
+        pedido.setCliente(clienteCircuitService.obtenerCliente(pedido.getIdCliente()));
+        pedido.getDetalles().forEach(d ->
+                d.setProducto(productoCircuitService.obtenerProducto(d.getIdProducto())));
+        return pedido;
     }
 
     // Valida el cliente y cada producto en sus microservicios y calcula el total

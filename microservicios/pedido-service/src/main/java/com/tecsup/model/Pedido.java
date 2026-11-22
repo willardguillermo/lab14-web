@@ -1,5 +1,6 @@
 package com.tecsup.model;
 
+import com.tecsup.dto.ClienteDTO;
 import jakarta.persistence.*;
 
 import java.time.LocalDate;
@@ -20,6 +21,10 @@ public class Pedido {
 
     private Double total;
 
+    // No se persiste: se completa consultando a cliente-service (con Circuit Breaker)
+    @Transient
+    private ClienteDTO cliente;
+
     // orphanRemoval: al reemplazar los detalles en un PUT se borran los anteriores
     @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<DetallePedido> detalles = new ArrayList<>();
@@ -38,4 +43,7 @@ public class Pedido {
 
     public List<DetallePedido> getDetalles() { return detalles; }
     public void setDetalles(List<DetallePedido> detalles) { this.detalles = detalles; }
+
+    public ClienteDTO getCliente() { return cliente; }
+    public void setCliente(ClienteDTO cliente) { this.cliente = cliente; }
 }

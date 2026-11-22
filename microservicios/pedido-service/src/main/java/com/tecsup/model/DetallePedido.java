@@ -1,6 +1,7 @@
 package com.tecsup.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.tecsup.dto.ProductoDTO;
 import jakarta.persistence.*;
 
 @Entity
@@ -16,6 +17,10 @@ public class DetallePedido {
     private Integer cantidad;
 
     private Double precio;
+
+    // No se persiste: se completa consultando a producto-service (con Circuit Breaker)
+    @Transient
+    private ProductoDTO producto;
 
     // @JsonIgnore evita la recursión infinita Pedido -> detalles -> pedido -> ...
     @JsonIgnore
@@ -37,4 +42,7 @@ public class DetallePedido {
 
     public Pedido getPedido() { return pedido; }
     public void setPedido(Pedido pedido) { this.pedido = pedido; }
+
+    public ProductoDTO getProducto() { return producto; }
+    public void setProducto(ProductoDTO producto) { this.producto = producto; }
 }
