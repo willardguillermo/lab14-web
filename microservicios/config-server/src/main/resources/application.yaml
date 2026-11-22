@@ -1,0 +1,15 @@
+server:
+  port: 8888
+
+spring:
+  application:
+    name: config-server
+  cloud:
+    config:
+      server:
+        git:
+          # Repositorio con las configuraciones de cada microservicio.
+          # Los archivos están en la carpeta config-repo/ de este mismo repositorio.
+          uri: https://github.com/willardguillermo/lab14-web
+          search-paths: config-repo
+          default-label: main
